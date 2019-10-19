@@ -61,13 +61,15 @@ ruido_limitado = filter(b,1,ruido);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [N_b,Wp_b] = buttord(w_p*(Fs/2),w_s*(Fs/2),3,Ar,'s');
-%[B_b,A_b] = butter(N_b,w_c*(Fs/2),'stop','s');     % Gera polos instáveis
 [Z_b,P_b,K_b] = butter(N_b/2,w_c*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_b,A_b] = zp2tf(Z_b,P_b,K_b);
-%[b_b,a_b] = bilinear(B_b,A_b,Fs);
-% As freqências não estão correspondendo
 [z_b,p_b,k_b] = bilinear(Z_b,P_b,K_b,Fs/2,9400);
 sos_b = zp2sos(z_b,p_b,k_b);
+
+
+%[B_b,A_b] = butter(N_b,w_c*(Fs/2),'stop','s');     % Gera polos instáveis
+%[b_b,a_b] = bilinear(B_b,A_b,Fs);
+% As freqências não estão correspondendo
 
 %[bb,ab] = zp2tf(zb,pb,kb);         %afetado por erro numérico
 %fvtool(sos_b)
@@ -97,10 +99,17 @@ sos_b = zp2sos(z_b,p_b,k_b);
 %% Projeto do Elíptico
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% [n,Wp] = ellipord(Wp,Ws,Rp,Rs,'s')
 [N_e,Wp_e] = ellipord(w_p*(Fs/2),w_s*(Fs/2),3,Ar,'s');
-[B_e,A_e] = ellip(N_e,3,Ar,w_p*(Fs/2),'stop','s');
-[b_e,a_e] = bilinear(B_e,A_e,Fs);
+[Z_e,P_e,K_e] = ellip(N_e,3,Ar,w_p*(Fs/2),'stop','s'); % Para stop retorna 2n
+[B_e,A_e] = zp2tf(Z_e,P_e,K_e);
+[z_e,p_e,k_e] = bilinear(Z_e,P_e,K_e,Fs/2);
+sos_e = zp2sos(z_e,p_e,k_e);
+
+
+% [n,Wp] = ellipord(Wp,Ws,Rp,Rs,'s')
+% [N_e,Wp_e] = ellipord(w_p*(Fs/2),w_s*(Fs/2),3,Ar,'s');
+% [B_e,A_e] = ellip(N_e,3,Ar,w_p*(Fs/2),'stop','s');
+% [b_e,a_e] = bilinear(B_e,A_e,Fs);
 
 % freqs(poly(Z_b),poly(P_b))
 %wvtool(w)
@@ -118,7 +127,7 @@ yn = y(:,1)+ruido_limitado;
 y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
 %y_c1 = filter(b_c1,a_c1,yn);% Projeto do Chebyshev I
 %y_c2 = filter(b_c2,a_c2,yn);% Projeto do Chebyshev II
-y_e = filter(b_e,a_e,yn);% Projeto do Elíptico
+y_e = sosfilt(sos_e,yn);% Projeto do Elíptico
 
 
 
@@ -162,10 +171,12 @@ ylabel('Y(\omega) + R_{lim}(\omega)')
 
 % Espectro do filtro e do sinal após filtrado
 figure;
-subplot(2,1,1)
+subplot(2,2,1)
 YN = fftshift(fft(yn));
 plot(f,abs(YN),'b')
 title('Sinal corrompido por ruído AWG')
+subplot(2,2,3)
+plot(f,unwarp(YN),'b')
 xlim([0 Fs/2])
 xlabel('f (Hz)')
 ylabel('Y(\omega) + R_{lim}(\omega)')
@@ -177,22 +188,24 @@ ylabel('Y(\omega) + R_{lim}(\omega)')
 % xlabel('f (Hz)')
 % ylabel('H(\omega)')
 % 
-subplot(2,1,2)
+% subplot(2,2,2)
  
- Y_b = fftshift(fft(y_b));
- plot(f,abs(Y_b),'g')
- title('Sinal após o filtro elíptico')
- xlim([0 Fs/2])
- xlabel('f (Hz)')
- ylabel('Y_{b}(\omega)')
-
- 
-% Y_e = fftshift(fft(y_e));
-% plot(f,abs(Y_e),'g')
-% title('Sinal após o filtro elíptico')
+% Y_b = fftshift(fft(y_b));
+% plot(f,abs(Y_b),'g')
+% title('Sinal após o filtro butterworth')
 % xlim([0 Fs/2])
 % xlabel('f (Hz)')
-% ylabel('Y_{e}(\omega)')
+% ylabel('Y_{b}(\omega)')
+
+subplot(2,2,2)
+Y_e = fftshift(fft(y_e));
+plot(f,abs(Y_e),'m')
+title('Sinal após o filtro elíptico')
+subplot(2,2,4)
+plot(f,unwarp(Y_e),'m')
+xlim([0 Fs/2])
+xlabel('f (Hz)')
+ylabel('Y_{e}(\omega)')
 
 % Espectro da resposta desejada
 % figure;
@@ -210,7 +223,7 @@ subplot(2,1,2)
 p = audioplayer(yn, Fs);
 play(p);
 pause(7)
-q = audioplayer(Y_b, Fs);
+q = audioplayer(Y_e, Fs);
 play(q);
 
 
