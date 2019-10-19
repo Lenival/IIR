@@ -49,7 +49,7 @@ N_0 = 0.1;
 ruido = N_0*randn(L,1);
 
 % Filtro limitador de ruído
-b = remez(1500,[0 w_p(1) w_s(1) w_s(2) w_p(2) 1],[0 0 1 1 0 0]);
+b = remez(1500,[0 w_s(1) w_s(1)+(25/(Fs/2)) w_s(2)-(25/(Fs/2)) w_s(2) 1],[0 0 1 1 0 0]);
 % b = remez(1500,[0 1.85e3/(Fs/2) 1.90e3/(Fs/2) 2.1e3/(Fs/2) 2.15e3/(Fs/2) 1],[0 0 1 1 0 0]);
 
 
@@ -65,10 +65,12 @@ ruido_limitado = filter(b,1,ruido);
 [Z_b,P_b,K_b] = butter(N_b/2,w_c*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_b,A_b] = zp2tf(Z_b,P_b,K_b);
 %[b_b,a_b] = bilinear(B_b,A_b,Fs);
-[z_b,p_b,k_b] = bilinear(Z_b,P_b,K_b,Fs);
+% As freqências não estão correspondendo
+[z_b,p_b,k_b] = bilinear(Z_b,P_b,K_b,Fs/2,9400);
+sos_b = zp2sos(z_b,p_b,k_b);
 
-%[bb,ab] = zp2tf(zb,pb,kb);
-
+%[bb,ab] = zp2tf(zb,pb,kb);         %afetado por erro numérico
+%fvtool(sos_b)
 % N = (1/2)*(ln(((1-(1-eps)^2)*delta_min^2)/(1-delta_min^2)))
 
 %syms N w_c
@@ -113,7 +115,7 @@ yn = y(:,1)+ruido_limitado;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Filtragem do sinal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-y_b = filter(b_b,a_b,yn);% Projeto do Butterworth
+y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
 %y_c1 = filter(b_c1,a_c1,yn);% Projeto do Chebyshev I
 %y_c2 = filter(b_c2,a_c2,yn);% Projeto do Chebyshev II
 y_e = filter(b_e,a_e,yn);% Projeto do Elíptico
@@ -160,7 +162,13 @@ ylabel('Y(\omega) + R_{lim}(\omega)')
 
 % Espectro do filtro e do sinal após filtrado
 figure;
-% subplot(2,1,1)
+subplot(2,1,1)
+YN = fftshift(fft(yn));
+plot(f,abs(YN),'b')
+title('Sinal corrompido por ruído AWG')
+xlim([0 Fs/2])
+xlabel('f (Hz)')
+ylabel('Y(\omega) + R_{lim}(\omega)')
 % HN = fftshift(fft(h_n));
 % omega = (Fs/M)*(-M/2:M/2-1);	% Eixo ajustado ao tamanho do filtro
 % plot(omega,abs(HN),'r')
@@ -169,7 +177,7 @@ figure;
 % xlabel('f (Hz)')
 % ylabel('H(\omega)')
 % 
-% subplot(2,1,2)
+subplot(2,1,2)
  
  Y_b = fftshift(fft(y_b));
  plot(f,abs(Y_b),'g')
@@ -199,11 +207,11 @@ figure;
 % Reprodução do áudio
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% p = audioplayer(yn, Fs);
-% play(p);
-% pause(7)
-% q = audioplayer(yf, Fs);
-% play(q);
+p = audioplayer(yn, Fs);
+play(p);
+pause(7)
+q = audioplayer(Y_b, Fs);
+play(q);
 
 
 
