@@ -24,8 +24,9 @@ f = (Fs/L)*(-L/2:L/2-1)';
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Frequência de corte e passagem normalizadas [rad/s]
-w_s = [1850 2150]./(2*pi*Fs/2);
-w_p = [1800 2200]./(2*pi*Fs/2);
+Ws = 2*pi*Fs;
+w_s = 2*pi*[1850 2150]./(Fs/2);
+w_p = 2*pi*[1800 2200]./(Fs/2);
 
 % Cálculo das frequências de corte
 w_c = [(w_p(1) + w_s(1))/2 (w_s(2) + w_p(2))/2];
@@ -45,11 +46,11 @@ Ars = -20*log10(delta_min);
 %% Adicionando sinal ao ruído AWG
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N_0 = 0.1;                                 % Densidade espectral do ruído
+N_0 = 0.005;                                 % Densidade espectral do ruído
 ruido = N_0*randn(L,1);                     % Ruído AWG
-banda = [0 w_s(1) w_s(1)+(25/(Fs/2)) w_s(2)-(25/(Fs/2)) w_s(2) 1];% Banda
-b = remez(2500, banda ,[0 0 1 1 0 0]);      % Filtro limitador de ruído
-ruido_limitado = filter(b,1,ruido);         % Limitando o espectro do ruído
+[z_n,p_n,k_n] = ellip(20,Arp,Ars,w_s/(2*pi),'bandpass');
+[sos_n,g_n] = zp2sos(z_n,p_n,k_n);
+ruido_limitado = sosfilt(sos_n*real(g_n),ruido);
 yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 
 
@@ -60,7 +61,7 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 [N_b,Wp_b] = buttord(w_p*(Fs/2),w_s*(Fs/2),Arp,Ars,'s');
 [Z_b,P_b,K_b] = butter(N_b,w_c*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_b,A_b] = zp2tf(Z_b,P_b,K_b);
-[z_b,p_b,k_b] = bilinear(Z_b,P_b,K_b,Fs);
+[z_b,p_b,k_b] = bilinear(Z_b,P_b,K_b,Fs,2150);
 [sos_b,g_b] = zp2sos(z_b,p_b,k_b);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -70,7 +71,7 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 [N_c1,Wp_c1] = cheb1ord(w_p*(Fs/2),w_s*(Fs/2),Arp,Ars,'s');
 [Z_c1,P_c1,K_c1] = cheby1(N_c1,Arp,w_p*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_c1,A_c1] = zp2tf(Z_c1,P_c1,K_c1);
-[z_c1,p_c1,k_c1] = bilinear(Z_c1,P_c1,K_c1,Fs);
+[z_c1,p_c1,k_c1] = bilinear(Z_c1,P_c1,K_c1,Fs,2150);
 [sos_c1,g_c1] = zp2sos(z_c1,p_c1,k_c1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -80,7 +81,7 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 [N_c2,Wp_c2] = cheb2ord(w_p*(Fs/2),w_s*(Fs/2),Arp,Ars,'s');
 [Z_c2,P_c2,K_c2] = cheby2(N_c2,Ars,w_s*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_c2,A_c2] = zp2tf(Z_c2,P_c2,K_c2);
-[z_c2,p_c2,k_c2] = bilinear(Z_c2,P_c2,K_c2,Fs/2);
+[z_c2,p_c2,k_c2] = bilinear(Z_c2,P_c2,K_c2,Fs);
 [sos_c2,g_c2] = zp2sos(z_c2,p_c2,k_c2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -90,16 +91,10 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 [N_e,Wp_e] = ellipord(w_p*(Fs/2),w_s*(Fs/2),Arp,Ars,'s');
 [Z_e,P_e,K_e] = ellip(N_e,Arp,Ars,w_p*(Fs/2),'stop','s'); % Para stop retorna 2n
 [B_e,A_e] = zp2tf(Z_e,P_e,K_e);
-[z_e,p_e,k_e] = bilinear(Z_e,P_e,K_e,Fs/2);
+[z_e,p_e,k_e] = bilinear(Z_e,P_e,K_e,Fs);
 [sos_e,g_e] = zp2sos(z_e,p_e,k_e);
 
-
-% [n,Wp] = ellipord(Wp,Ws,Rp,Rs,'s')
-% [N_e,Wp_e] = ellipord(w_p*(Fs/2),w_s*(Fs/2),3,Ar,'s');
-% [B_e,A_e] = ellip(N_e,3,Ar,w_p*(Fs/2),'stop','s');
-% [b_e,a_e] = bilinear(B_e,A_e,Fs);
-
-% freqs(poly(Z_b),poly(P_b))
+% fvtool(sos_b,sos_c1,sos_c2,sos_e)
 %wvtool(w)
 %stem(h_n)
 %freqz(h_n)
@@ -107,15 +102,19 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Filtragem do sinal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-y_b = sosfilt(sos_b*real(g_b),yn);% Projeto do Butterworth
-y_c1 = sosfilt(sos_c1*real(g_c1),yn);% Projeto do Chebyshev I
-y_c2 = sosfilt(sos_c2*real(g_c2),yn);% Projeto do Chebyshev II
-y_e = sosfilt(sos_e*real(g_e),yn);% Projeto do Elíptico
+y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
+y_c1 = sosfilt(sos_c1,yn);% Projeto do Chebyshev I
+y_c2 = sosfilt(sos_c2,yn);% Projeto do Chebyshev II
+y_e = sosfilt(sos_e,yn);% Projeto do Elíptico
 
-syms s z
-f_zk = @(z,sk,Ts) (((z*Ts/2)+1)/((z*Ts/2)-1))-sk;
-f_sk = @(s,zk,Ts) (2/Ts)*((s-1)/(s+1))-zk;
+% y_b = sosfilt(sos_b*real(g_b),yn);% Projeto do Butterworth
+% y_c1 = sosfilt(sos_c1*real(g_c1),yn);% Projeto do Chebyshev I
+% y_c2 = sosfilt(sos_c2*real(g_c2),yn);% Projeto do Chebyshev II
+% y_e = sosfilt(sos_e*real(g_e),yn);% Projeto do Elíptico
 
+% syms s z
+% f_zk = @(z,sk,Ts) (((z*Ts/2)+1)/((z*Ts/2)-1))-sk;
+% f_sk = @(s,zk,Ts) (2/Ts)*((s-1)/(s+1))-zk;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Plotagem do gráficos
@@ -134,50 +133,28 @@ subplot(2,2,3)
 R_limitado = fftshift(fft(ruido_limitado));
 plot(f,abs(R_limitado),'g');title('Ruído limitado em banda');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('R_{lim}(\omega)')
 
-%figure;
 subplot(2,2,4)
 YN = fftshift(fft(yn));
 plot(f,abs(YN),'b');title('Sinal corrompido por ruído AWG');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y(\omega) + R_{lim}(\omega)')
 
-% Espectro do filtro e do sinal após filtrado
+
+% Espectros dos sinais após filtrados
 figure;
-subplot(2,1,1)
-YN = fftshift(fft(yn));
-plot(f,abs(YN),'b');title('Sinal corrompido por ruído AWG');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y(\omega) + R_{lim}(\omega)')
-% HN = fftshift(fft(h_n));
-% omega = (Fs/M)*(-M/2:M/2-1);	% Eixo ajustado ao tamanho do filtro
-% plot(omega,abs(HN),'r')
-% title('Filtro notch projetado por janela de Kaiser')
-% xlim([0 Fs/2])
-% xlabel('f (Hz)')
-% ylabel('H(\omega)')
-% 
-subplot(2,1,2)
- 
-% Y_b = fftshift(fft(y_b));
-% plot(f,abs(Y_b),'g')
-% title('Sinal após o filtro butterworth')
-% xlim([0 Fs/2])
-% xlabel('f (Hz)')
-% ylabel('Y_{b}(\omega)')
+subplot(2,2,1) 
+Y_b = fftshift(fft(y_b));
+plot(f,abs(Y_b),'m');title('Sinal após o filtro Butterworth');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{b}(\omega)')
 
- 
-% Y_e = fftshift(fft(y_e));
-% plot(f,abs(Y_e),'m');title('Sinal após o filtro elíptico');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{e}(\omega)')
-
- 
+subplot(2,2,2)
 Y_c1 = fftshift(fft(y_c1));
-plot(f,abs(Y_c1),'m');title('Sinal após o filtro Chebyshev I');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{cI}(\omega)')
+plot(f,abs(Y_c1),'g');title('Sinal após o filtro Chebyshev I');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{cI}(\omega)')
 
+subplot(2,2,3)
+Y_c2 = fftshift(fft(y_c2));
+plot(f,abs(Y_c2),'c');title('Sinal após o filtro Chebyshev II');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{cII}(\omega)')
 
-% Espectro da resposta desejada
-% figure;
-% HD = fftshift(fft(h_d));
-% plot(omega,abs(HD),'r')
-% title('Filtro notch desejado')
-% xlim([0 Fs/2])
-% xlabel('f (Hz)')
-% ylabel('H(\omega)')
+subplot(2,2,4)
+Y_e = fftshift(fft(y_e));
+plot(f,abs(Y_e),'k');title('Sinal após o filtro Elíptico');xlim([0 Fs/2]);xlabel('f (Hz)');ylabel('Y_{e}(\omega)')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Reprodução do áudio
@@ -185,9 +162,18 @@ plot(f,abs(Y_c1),'m');title('Sinal após o filtro Chebyshev I');xlim([0 Fs/2]);xl
 
 p = audioplayer(yn, Fs);
 play(p);
-pause(7)
-q = audioplayer(y_c1, Fs);
-play(q);
+pause(8)
+q_b = audioplayer(y_b, Fs);
+play(q_b);
+pause(8)
+q_c1 = audioplayer(y_c1, Fs);
+play(q_c1);
+pause(8)
+q_c2 = audioplayer(y_c2, Fs);
+play(q_c2);
+pause(8)
+q_e = audioplayer(y_e, Fs);
+play(q_e);
 
 
 
