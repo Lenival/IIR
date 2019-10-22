@@ -37,7 +37,7 @@ Ars = -20*log10(delta_min);
 %% Adicionando sinal ao ruído AWG
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N_0 = 0.003;                                 % Densidade espectral do ruído
+N_0 = 0.001;                                 % Densidade espectral do ruído
 ruido = N_0.*randn(L,1);                     % Ruído AWG
 [z_n,p_n,k_n] = ellip(50,Arp,Ars,w_s/(2*pi),'bandpass');
 [sos_n,g_n] = zp2sos(z_n,p_n,k_n);
@@ -93,16 +93,24 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Filtragem do sinal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Retirando parte imaginária decorrente de erro numérico
+sos_b(1,1:3) = sos_b(1,1:3).*real(g_b);
+% sos_c1(1,1:3) = sos_c1(1,1:3).*real(g_c1);
+% sos_c2(1,1:3) = sos_c2(1,1:3).*real(g_c2);
+% sos_e(1,1:3) = sos_e(1,1:3).*real(g_e);
+
 % y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
 % y_c1 = sosfilt(sos_c1,yn);% Projeto do Chebyshev I
 % y_c2 = sosfilt(sos_c2,yn);% Projeto do Chebyshev II
 % y_e = sosfilt(sos_e,yn);% Projeto do Elíptico
 
-%y_b = sosfilt(sos_b*real(g_b),yn);% Projeto do Butterworth
-y_b = sosfilt(sos_b*real(g_b),yn);% Projeto do Butterworth
-y_c1 = sosfilt(sos_c1*real(g_c1),yn);% Projeto do Chebyshev I
-y_c2 = sosfilt(sos_c2*real(g_c2),yn);% Projeto do Chebyshev II
-y_e = sosfilt(sos_e*real(g_e),yn);% Projeto do Elíptico
+y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
+y_c1 = sosfilt(sos_c1,yn);% Projeto do Chebyshev I
+y_c2 = sosfilt(sos_c2,yn);% Projeto do Chebyshev II
+y_e = sosfilt(sos_e,yn);% Projeto do Elíptico
+
 
 % syms s z
 % f_zk = @(z,sk,Ts) (((z*Ts/2)+1)/((z*Ts/2)-1))-sk;
