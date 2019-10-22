@@ -91,20 +91,13 @@ yn = y(:,1)+ruido_limitado;                 % Adicionando sial e ruído
 %freqz(h_n)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filtragem do sinal
+%% Filtragem do sinal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 % Retirando parte imaginária decorrente de erro numérico
 sos_b(1,1:3) = sos_b(1,1:3).*real(g_b);
-% sos_c1(1,1:3) = sos_c1(1,1:3).*real(g_c1);
-% sos_c2(1,1:3) = sos_c2(1,1:3).*real(g_c2);
-% sos_e(1,1:3) = sos_e(1,1:3).*real(g_e);
-
-% y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
-% y_c1 = sosfilt(sos_c1,yn);% Projeto do Chebyshev I
-% y_c2 = sosfilt(sos_c2,yn);% Projeto do Chebyshev II
-% y_e = sosfilt(sos_e,yn);% Projeto do Elíptico
+sos_c1(1,1:3) = sos_c1(1,1:3).*real(g_c1);
+sos_c2(1,1:3) = sos_c2(1,1:3).*real(g_c2);
+sos_e(1,1:3) = sos_e(1,1:3).*real(g_e);
 
 y_b = sosfilt(sos_b,yn);% Projeto do Butterworth
 y_c1 = sosfilt(sos_c1,yn);% Projeto do Chebyshev I
